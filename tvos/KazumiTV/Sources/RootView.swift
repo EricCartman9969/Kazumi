@@ -29,8 +29,9 @@ struct RootView: View {
             // From the Top Shelf: kazumitv://subject/<id>?resume=1
             guard let target = TopShelfShared.parse(url) else { return }
             Task {
-                let subject = model.historyEntries.first(where: { $0.subject.id == target.subjectID })?.subject
-                guard let s = subject ?? (try? await model.bangumi.subject(target.subjectID)) else { return }
+                var subject = model.historyEntries.first(where: { $0.subject.id == target.subjectID })?.subject
+                if subject == nil { subject = try? await model.bangumi.subject(target.subjectID) }
+                guard let s = subject else { return }
                 tab = 0
                 trendingPath = NavigationPath()
                 trendingPath.append(SubjectRoute(subject: s, autoResume: target.resume))
