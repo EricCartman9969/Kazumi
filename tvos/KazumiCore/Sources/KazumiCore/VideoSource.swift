@@ -343,4 +343,48 @@ public struct CompanionVideoResolver: VideoSourceResolver {
         }
         return VideoSource(url: url, headers: playbackHeaders(for: plugin, userAgent: obj["userAgent"] as? String), resolvedBy: name)
     }
+
+    // MARK: Anti-crawler verification
+
+    public enum CaptchaStep: Sendable {
+        /// Verified; cookies to attach to this rule's requests.
+        case done(PluginCookie)
+        /// The user must type the characters shown in the image (PNG data).
+        case needsAnswer(session: String, image: Data, message: String?)
+    }
+
+    private func captchaStep(_ obj: [String: Any], status: Int) throws -> CaptchaStep {
+        if status == 200, (obj["done"] as? Bool) == true, let cookie = obj["cookie"] as? String {
+            return .done(PluginCookie(cookie: cookie, userAgent: (obj["userAgent"] as? String) ?? randomUserAgent()))
+        }
+        if status == 200, let session = obj["session"] as? String, let b64 = obj["image"] as? String,
+           let data = Data(base64Encoded: b64.components(separatedBy: ",").last ?? b64) {
+            return .needsAnswer(session: session, image: data, message: obj["error"] as? String)
+        }
+        if status == 401 { throw KazumiError.resolverUnavailable("令牌不正确") }
+        throw KazumiError.parse((obj["error"] as? String) ?? "验证失败（HTTP \(status)）")
+    }
+
+    /// Opens the rule's search page on the companion and runs the rule's
+    /// verification (click, script, or image captcha).
+    public func startCaptcha(plugin: Plugin, keyword: String) async throws -> CaptchaStep {
+        let c = plugin.antiCrawlerConfig
+        let url = plugin.searchURL.replacingOccurrences(of: "@keyword", with: encodeQueryComponent(keyword))
+        let payload: [String: Any] = [
+            "url": url.isEmpty ? plugin.baseURL : url,
+            "type": c.captchaType, "image": c.captchaImage, "input": c.captchaInput,
+            "button": c.captchaButton, "script": c.captchaScript,
+            "detectType": c.captchaDetectType, "detectValue": c.captchaDetectValue,
+            "userAgent": plugin.userAgent.isEmpty ? randomUserAgent() : plugin.userAgent,
+        ]
+        let (status, data) = try await request(path: "/captcha/start", method: "POST",
+                                               body: try JSONSerialization.data(withJSONObject: payload), timeout: 60)
+        return try captchaStep((try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:], status: status)
+    }
+
+    public func submitCaptcha(session: String, answer: String) async throws -> CaptchaStep {
+        let body = try JSONSerialization.data(withJSONObject: ["session": session, "answer": answer])
+        let (status, data) = try await request(path: "/captcha/submit", method: "POST", body: body, timeout: 40)
+        return try captchaStep((try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:], status: status)
+    }
 }

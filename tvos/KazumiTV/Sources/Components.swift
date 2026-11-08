@@ -4,9 +4,10 @@ import KazumiCore
 struct PosterCard: View {
     let subject: BangumiSubject
     var subtitle: String? = nil
+    var autoResume = false
 
     var body: some View {
-        NavigationLink(value: SubjectRoute(subject: subject)) {
+        NavigationLink(value: SubjectRoute(subject: subject, autoResume: autoResume)) {
             VStack(alignment: .leading, spacing: 0) {
                 CoverImage(url: subject.image)
                     .frame(width: 260, height: 370)
@@ -76,5 +77,24 @@ struct ErrorView: View {
             Button("重试", action: retry)
         }
         .frame(maxWidth: .infinity, minHeight: 400)
+    }
+}
+
+/// Horizontal "继续观看" row; selecting a show resumes it directly.
+struct ContinueWatchingRow: View {
+    let entries: [HistoryEntry]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("继续观看").font(.title3).padding(.horizontal, 20)
+            ScrollView(.horizontal) {
+                LazyHStack(spacing: 48) {
+                    ForEach(entries) { entry in
+                        PosterCard(subject: entry.subject, subtitle: "\(entry.episodeName) · \(entry.pluginName)", autoResume: true)
+                    }
+                }
+                .padding(.horizontal, 20).padding(.vertical, 30)
+            }
+        }
     }
 }

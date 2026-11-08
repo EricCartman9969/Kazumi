@@ -16,6 +16,10 @@ struct SettingsView: View {
                 Picker("解析方式", selection: $model.resolveMode) {
                     ForEach(ResolveMode.allCases) { Text($0.title).tag($0) }
                 }
+                DiscoveryRows(discovery: model.discovery) { url in
+                    model.resolverURL = url
+                    Task { await test() }
+                }
                 Button(testing ? "测试中…" : "测试连接") { Task { await test() } }
                     .disabled(testing || model.resolverURL.isEmpty)
                 if let resolverStatus {
@@ -111,5 +115,28 @@ struct RulesView: View {
         if p.antiCrawlerConfig.enabled { parts.append("有人机验证，可能无法使用") }
         if p.useLegacyParser { parts.append("旧版解析") }
         return parts.joined(separator: " · ")
+    }
+}
+
+/// Lists resolvers found on the LAN via Bonjour.
+private struct DiscoveryRows: View {
+    @ObservedObject var discovery: ResolverDiscovery
+    let choose: (String) -> Void
+
+    var body: some View {
+        Button(discovery.isBrowsing ? "正在查找局域网解析器…" : "自动查找局域网解析器") {
+            discovery.start()
+            Task {
+                try? await Task.sleep(nanoseconds: 8_000_000_000)
+                discovery.stop()
+            }
+        }
+        ForEach(discovery.found) { found in
+            Button {
+                choose(found.url)
+            } label: {
+                LabeledContent(found.name, value: found.url)
+            }
+        }
     }
 }

@@ -5,6 +5,9 @@ services:
     restart: unless-stopped
     ports:
       - "8787:8787"
+    # On Linux hosts (most NAS), host networking lets the TV discover the
+    # resolver over Bonjour. Use it instead of "ports" above:
+    # network_mode: host
     environment:
       # Optional shared secret; enter the same value in the TV app's settings.
       RESOLVER_TOKEN: ""

@@ -47,10 +47,19 @@ Builds installed from Xcode with a paid account stay valid for a year; TestFligh
 
 Working: Bangumi trending / weekly calendar / search, per-source search across all installed rules,
 episode lists (XPath and API rules), on-device and companion resolving, AVPlayer playback with
-User-Agent/Referer, HLS ad filtering, resume, next episode, watch history and favorites.
+User-Agent/Referer, HLS ad filtering, resume, next episode, watch history and favorites,
+automatic source selection (last source first, then rules ranked by past success and title match),
+next-episode prefetch, a short resolve cache, a "continue watching" row and Top Shelf section,
+Bonjour discovery of the companion resolver, and anti-crawler verification for protected rules
+(solved on the companion; image captchas are shown on the TV for you to type).
 
-Not yet: danmaku, Bangumi account sync, captcha-protected rules (need a WebView to solve),
-WebDAV sync, Anime4K shaders and formats AVPlayer cannot play (for example FLV, MKV).
+Not yet: danmaku, Bangumi account sync, WebDAV sync, Anime4K shaders and formats AVPlayer cannot
+play (for example FLV, MKV).
+
+The app and its Top Shelf extension share data through the App Group
+`group.io.github.ericcartman9969.kazumitv`; with automatic signing Xcode registers it for your team.
+If you change the bundle identifier, change the group in both `.entitlements` files and in
+`KazumiTV/Shared/TopShelfShared.swift`.
 
 ## License
 

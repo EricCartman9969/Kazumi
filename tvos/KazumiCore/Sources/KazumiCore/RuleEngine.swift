@@ -4,9 +4,11 @@ import Foundation
 /// (lib/services/plugin/rule_engine.dart) and its default request executor.
 public struct RuleEngine: Sendable {
     let http: HTTPClient
+    let cookies: PluginCookieStore?
 
-    public init(http: HTTPClient = URLSessionHTTPClient()) {
+    public init(http: HTTPClient = URLSessionHTTPClient(), cookies: PluginCookieStore? = nil) {
         self.http = http
+        self.cookies = cookies
     }
 
     public func search(_ plugin: Plugin, keyword: String) async throws -> [SearchItem] {
@@ -52,7 +54,11 @@ public struct RuleEngine: Sendable {
     func execute(_ request: PreparedRuleRequest, plugin: Plugin) async throws -> String {
         // Header names are lowercased so a rule-supplied 'User-Agent' replaces ours.
         var headers: [String: String] = ["referer": "\(plugin.baseURL)/", "user-agent": randomUserAgent()]
+        let stored = request.includeCookies ? cookies?.cookie(for: plugin.name) : nil
+        if let stored { headers["cookie"] = stored.cookie }
         for (k, v) in request.headers { headers[k.lowercased()] = v }
+        // Clearance cookies only work with the User-Agent they were issued to.
+        if let stored { headers["user-agent"] = stored.userAgent }
         var body: Data?
         if request.method == "POST", let b = request.body {
             switch request.bodyType {

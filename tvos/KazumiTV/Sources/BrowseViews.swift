@@ -10,6 +10,10 @@ struct TrendingView: View {
 
     var body: some View {
         ScrollView {
+            if !model.historyEntries.isEmpty {
+                ContinueWatchingRow(entries: Array(model.historyEntries.prefix(12)))
+                    .padding(.bottom, 20)
+            }
             if let error, subjects.isEmpty {
                 ErrorView(message: error) { Task { await load(reset: true) } }
             } else if subjects.isEmpty {
@@ -132,7 +136,7 @@ struct LibraryView: View {
                     ScrollView(.horizontal) {
                         LazyHStack(spacing: 48) {
                             ForEach(model.historyEntries) { entry in
-                                PosterCard(subject: entry.subject, subtitle: "\(entry.episodeName) · \(entry.pluginName)")
+                                PosterCard(subject: entry.subject, subtitle: "\(entry.episodeName) · \(entry.pluginName)", autoResume: true)
                                     .contextMenu {
                                         Button("删除记录", role: .destructive) { model.removeHistory(entry.subject.id) }
                                     }

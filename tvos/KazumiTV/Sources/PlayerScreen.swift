@@ -1,5 +1,6 @@
 import AVFoundation
 import AVKit
+import Combine
 import SwiftUI
 import KazumiCore
 
@@ -13,6 +14,7 @@ final class PlayerController: ObservableObject {
 
     @Published var phase: Phase = .resolving("正在解析视频地址…")
     @Published var request: PlayRequest
+    private var statusObserver: AnyCancellable?
     let player = AVPlayer()
     private let model: AppModel
     private var resolveTask: Task<Void, Never>?
@@ -24,8 +26,8 @@ final class PlayerController: ObservableObject {
     init(request: PlayRequest, model: AppModel) {
         self.request = request
         self.model = model
-        timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 5, preferredTimescale: 1), queue: .main) { [weak self] _ in
-            Task { @MainActor in self?.saveProgress() }
+        timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 1, preferredTimescale: 1), queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.tick() }
         }
     }
 
@@ -49,22 +51,56 @@ final class PlayerController: ObservableObject {
         let pageURL = road.urls[index]
         let plugin = request.plugin
         let resolver = model.resolver
+        let prefs = model.prefs
+        let hint = model.resolveFailureHint
         phase = .resolving("正在解析 \(episodeName)…")
         resolveTask = Task {
             do {
                 let source = try await resolver.resolve(episodeURL: pageURL, plugin: plugin)
                 if Task.isCancelled { return }
+                prefs.recordResolve(pluginName: plugin.name, success: true)
                 load(source, pageURL: pageURL)
+                rememberSource()
+                prefetchNext()
             } catch {
                 if Task.isCancelled { return }
-                phase = .failed(error.localizedDescription)
+                prefs.recordResolve(pluginName: plugin.name, success: false)
+                var msg = error.localizedDescription
+                if let hint, let ke = error as? KazumiError, case .videoSourceNotFound = ke { msg += "\n\n" + hint }
+                phase = .failed(msg)
             }
         }
     }
 
     func next() { if hasNext { play(episode: request.episodeIndex + 1) } }
 
-    func retry() { play(episode: request.episodeIndex) }
+    func retry() {
+        let url = road.urls[request.episodeIndex]
+        let resolver = model.resolver
+        Task {
+            await resolver.invalidate(url)
+            play(episode: request.episodeIndex)
+        }
+    }
+
+    /// Resolve the next episode while this one plays so switching is instant.
+    private func prefetchNext() {
+        guard hasNext else { return }
+        let url = road.urls[request.episodeIndex + 1]
+        let plugin = request.plugin
+        let resolver = model.resolver
+        Task.detached(priority: .utility) {
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
+            await resolver.prefetch(episodeURL: url, plugin: plugin)
+        }
+    }
+
+    private func rememberSource() {
+        model.prefs.setPreferredSource(PreferredSource(pluginName: request.plugin.name, sourceURL: request.sourceURL,
+                                                       itemName: request.subject.displayName), subjectID: request.subject.id)
+    }
+
+    private func tick() { saveProgress() }
 
     private func load(_ source: VideoSource, pageURL: String) {
         guard let url = URL(string: source.url) ?? URL(string: source.url.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed) ?? "") else {
@@ -85,6 +121,13 @@ final class PlayerController: ObservableObject {
         }
         let item = AVPlayerItem(asset: asset)
         item.externalMetadata = metadata()
+        statusObserver = item.publisher(for: \.status).receive(on: DispatchQueue.main).sink { [weak self] status in
+            guard let self, status == .failed else { return }
+            let reason = item.error?.localizedDescription ?? "未知错误"
+            let resolver = self.model.resolver
+            Task { await resolver.invalidate(pageURL) }
+            self.phase = .failed("播放器无法播放这个地址：\(reason)\n\(source.url)")
+        }
         if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
         endObserver = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { [weak self] _ in
             Task { @MainActor in
@@ -138,6 +181,7 @@ final class PlayerController: ObservableObject {
         timeObserver = nil
         if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
         endObserver = nil
+        statusObserver = nil
     }
 }
 
@@ -231,5 +275,6 @@ private struct AVPlayerView: UIViewControllerRepresentable {
         }
         items.append(UIMenu(title: "选集", image: UIImage(systemName: "list.number"), children: episodes))
         vc.transportBarCustomMenuItems = items
+
     }
 }

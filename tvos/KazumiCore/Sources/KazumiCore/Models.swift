@@ -113,6 +113,10 @@ public struct AntiCrawlerConfig: Sendable, Equatable {
     public var captchaDetectValue = ""
     public var captchaImage = ""
     public var captchaButton = ""
+    /// 1 = image captcha typed by the user, 2 = click a button, 3 = custom script
+    public var captchaType = 1
+    public var captchaInput = ""
+    public var captchaScript = ""
 
     public init() {}
 
@@ -122,6 +126,9 @@ public struct AntiCrawlerConfig: Sendable, Equatable {
         captchaDetectValue = (json["captchaDetectValue"] as? String) ?? ""
         captchaImage = (json["captchaImage"] as? String) ?? ""
         captchaButton = (json["captchaButton"] as? String) ?? ""
+        captchaType = (json["captchaType"] as? NSNumber)?.intValue ?? 1
+        captchaInput = (json["captchaInput"] as? String) ?? ""
+        captchaScript = (json["captchaScript"] as? String) ?? ""
     }
 }
 

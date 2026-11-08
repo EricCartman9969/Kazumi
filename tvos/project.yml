@@ -19,10 +19,12 @@ targets:
     platform: tvOS
     sources:
       - path: KazumiTV/Sources
+      - path: KazumiTV/Shared
       - path: KazumiTV/Resources
     dependencies:
       - package: KazumiCore
         product: KazumiCore
+      - target: KazumiTopShelf
     settings:
       base:
         PRODUCT_NAME: Kazumi
@@ -34,3 +36,23 @@ targets:
         TARGETED_DEVICE_FAMILY: "3"
         INFOPLIST_FILE: KazumiTV/Info.plist
         GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: KazumiTV/KazumiTV.entitlements
+
+  # Top Shelf: recently watched shows on the Apple TV home screen.
+  KazumiTopShelf:
+    type: tv-app-extension
+    platform: tvOS
+    sources:
+      - path: KazumiTopShelf/ContentProvider.swift
+      - path: KazumiTV/Shared
+    settings:
+      base:
+        PRODUCT_NAME: KazumiTopShelf
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.ericcartman9969.kazumitv.topshelf
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ""
+        TARGETED_DEVICE_FAMILY: "3"
+        INFOPLIST_FILE: KazumiTopShelf/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: KazumiTopShelf/KazumiTopShelf.entitlements
+        APPLICATION_EXTENSION_API_ONLY: YES

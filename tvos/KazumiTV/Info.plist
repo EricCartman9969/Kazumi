@@ -34,6 +34,21 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_kazumi-resolver._tcp</string>
+	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>io.github.ericcartman9969.kazumitv</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>kazumitv</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>连接局域网内的 Kazumi 伴随解析器，用于解析需要浏览器才能获取的视频地址。</string>
 </dict>
