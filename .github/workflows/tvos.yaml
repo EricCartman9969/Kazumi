@@ -41,6 +41,29 @@ jobs:
             -destination 'generic/platform=tvOS' \
             -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tail -50
 
+      - name: Screenshots in the tvOS Simulator
+        working-directory: tvos
+        run: |
+          set -x
+          DEVICE=$(xcrun simctl list devices available | grep -m1 "Apple TV" | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
+          APP=$(find build/Build/Products/Debug-appletvsimulator -maxdepth 1 -name "*.app" | head -1)
+          xcrun simctl install "$DEVICE" "$APP"
+          mkdir -p shots
+          xcrun simctl launch "$DEVICE" io.github.ericcartman9969.kazumitv
+          sleep 40
+          xcrun simctl io "$DEVICE" screenshot shots/1-home.png
+          xcrun simctl terminate "$DEVICE" io.github.ericcartman9969.kazumitv
+          xcrun simctl launch "$DEVICE" io.github.ericcartman9969.kazumitv -openSubject 400602
+          sleep 45
+          xcrun simctl io "$DEVICE" screenshot shots/2-detail.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tvos-screenshots
+          path: tvos/shots/
+
   resolver:
     runs-on: ubuntu-latest
     steps:

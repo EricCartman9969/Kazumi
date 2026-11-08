@@ -1,0 +1,12 @@
+services:
+  kazumi-resolver:
+    build: .
+    container_name: kazumi-resolver
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    environment:
+      # Optional shared secret; enter the same value in the TV app's settings.
+      RESOLVER_TOKEN: ""
+    # Chromium needs more than Docker's default 64 MB of shared memory.
+    shm_size: "1gb"

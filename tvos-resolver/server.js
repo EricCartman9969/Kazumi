@@ -91,11 +91,7 @@ async function resolve({ url, legacy = false, userAgent, timeoutMs = 30000 }) {
       return route.continue();
     });
 
-    if (legacy) {
-      // Legacy rules: the playable address is an iframe src (possibly with the
-      // media URL in its query string).
-      context.on('page', () => {});
-    } else {
+    if (!legacy) {
       await context.exposeBinding('__kazumiReport', (source, kind, mediaUrl, frameUrl) => {
         if (String(mediaUrl).includes('about:blank')) return;
         finish(kind, mediaUrl, frameUrl);
@@ -134,8 +130,23 @@ async function resolve({ url, legacy = false, userAgent, timeoutMs = 30000 }) {
     }
 
     page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeoutMs }).catch(() => {});
+
+    // Some players only request the playlist after a play gesture. Nudge every
+    // frame a few times: call play() on <video> and click common play buttons.
+    const nudge = async () => {
+      for (const f of page.frames()) {
+        await f.evaluate(() => {
+          document.querySelectorAll('video').forEach((v) => { try { v.muted = true; v.play().catch(() => {}); } catch (_) {} });
+          const sel = '.dplayer-mobile-play, .dplayer-play-icon, .vjs-big-play-button, .art-control-play, .prism-big-play-btn, .xgplayer-start, .plyr__control--overlaid, .jw-display-icon-display, [aria-label="Play"]';
+          const btn = document.querySelector(sel);
+          if (btn) btn.click();
+        }).catch(() => {});
+      }
+    };
+    const nudges = [4000, 8000, 14000].filter((t) => t < timeoutMs).map((t) => setTimeout(() => { if (!settled) nudge(); }, t));
     const timer = new Promise((r) => setTimeout(() => r(null), timeoutMs));
     const out = await Promise.race([result, timer]);
+    nudges.forEach(clearTimeout);
     if (!out) {
       const err = new Error('Timed out without finding a video source');
       err.status = 504;
