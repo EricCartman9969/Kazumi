@@ -26,6 +26,8 @@ jobs:
       - name: Generate project
         working-directory: tvos
         run: xcodegen
+      - name: Metal toolchain (separate download since Xcode 26)
+        run: xcodebuild -downloadComponent MetalToolchain || true
       - name: Build for tvOS Simulator
         working-directory: tvos
         run: |
@@ -63,6 +65,27 @@ jobs:
         with:
           name: tvos-screenshots
           path: tvos/shots/
+
+  anime4k-metal:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install numpy
+      - name: Generated Metal code is up to date
+        run: |
+          python3 tvos/tools/anime4k_to_metal.py
+          git diff --exit-code tvos/KazumiTV/Sources/Anime4K
+      - name: Build checker
+        run: |
+          swiftc -O tvos/tools/anime4k-metal-check/main.swift \
+            tvos/KazumiTV/Sources/Anime4K/Anime4KProcessor.swift \
+            tvos/KazumiTV/Sources/Anime4K/Anime4KPasses.swift -o anime4k-metal-check
+      - name: Metal output matches the reference
+        working-directory: tvos/tools
+        run: python3 anime4k_compare.py ../../anime4k-metal-check ../KazumiTV/Sources/Anime4K/Anime4KKernels.metal
 
   resolver:
     runs-on: ubuntu-latest

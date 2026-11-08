@@ -22,10 +22,19 @@ final class PlayerController: ObservableObject {
     private var endObserver: NSObjectProtocol?
     private var loader: HLSAdFilterLoader?
     private var lastSaved = Date.distantPast
+    /// Anime4K overlay; nil when Metal is unavailable.
+    let anime4k: Anime4KRenderer?
+    @Published var anime4kMode: Anime4KMode
 
     init(request: PlayRequest, model: AppModel) {
         self.request = request
         self.model = model
+        anime4kMode = model.anime4kMode
+        anime4k = Anime4KRenderer(mode: model.anime4kMode)
+        anime4k?.showHUD = model.anime4kHUD
+        anime4k?.onDowngrade = { [weak self] mode in
+            Task { @MainActor in self?.anime4kMode = mode }
+        }
         timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 1, preferredTimescale: 1), queue: .main) { [weak self] _ in
             Task { @MainActor in self?.tick() }
         }
@@ -70,6 +79,12 @@ final class PlayerController: ObservableObject {
                 phase = .failed(msg)
             }
         }
+    }
+
+    /// Changes the Anime4K level for this playback only; Settings holds the default.
+    func setAnime4K(_ mode: Anime4KMode) {
+        anime4kMode = mode
+        anime4k?.setMode(mode)
     }
 
     func next() { if hasNext { play(episode: request.episodeIndex + 1) } }
@@ -136,6 +151,7 @@ final class PlayerController: ObservableObject {
                 if self.model.autoNext { self.next() }
             }
         }
+        anime4k?.attach(item)
         player.replaceCurrentItem(with: item)
         let resume = model.history.position(for: pageURL)
         if resume > 10 {
@@ -182,6 +198,7 @@ final class PlayerController: ObservableObject {
         if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
         endObserver = nil
         statusObserver = nil
+        anime4k?.shutdown()
     }
 }
 
@@ -244,6 +261,8 @@ private struct AVPlayerView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> AVPlayerViewController {
         let vc = AVPlayerViewController()
         vc.player = controller.player
+        vc.loadViewIfNeeded()
+        if let overlay = vc.contentOverlayView { controller.anime4k?.install(in: overlay) }
         update(vc)
         return vc
     }
@@ -274,6 +293,14 @@ private struct AVPlayerView: UIViewControllerRepresentable {
             }
         }
         items.append(UIMenu(title: "选集", image: UIImage(systemName: "list.number"), children: episodes))
+        if c.anime4k != nil {
+            let modes = Anime4KMode.allCases.map { mode in
+                UIAction(title: mode.title, subtitle: mode.detail, state: mode == c.anime4kMode ? .on : .off) { _ in
+                    Task { @MainActor in c.setAnime4K(mode) }
+                }
+            }
+            items.append(UIMenu(title: "超分", image: UIImage(systemName: "sparkles.tv"), children: modes))
+        }
         vc.transportBarCustomMenuItems = items
 
     }

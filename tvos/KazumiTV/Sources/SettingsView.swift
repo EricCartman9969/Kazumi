@@ -35,6 +35,18 @@ struct SettingsView: View {
                 Toggle("过滤 HLS 插播广告", isOn: $model.globalAdFilter)
                 Toggle("自动播放下一集", isOn: $model.autoNext)
             }
+            Section {
+                Picker("Anime4K 超分辨率", selection: $model.anime4kMode) {
+                    ForEach(Anime4KMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                Toggle("显示超分性能信息", isOn: $model.anime4kHUD)
+            } header: {
+                Text("画质增强")
+            } footer: {
+                Text("\(model.anime4kMode.detail)。屏幕比视频大 1.2 倍以上时才放大，否则只做画质修复。GPU 跟不上时会自动降一档。播放中也可以在播放器菜单里切换。")
+            }
 
             Section {
                 NavigationLink("规则管理（\(model.plugins.count) 条）") { RulesView() }

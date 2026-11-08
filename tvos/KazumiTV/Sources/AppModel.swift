@@ -61,6 +61,12 @@ final class AppModel: ObservableObject {
     @Published var autoNext: Bool = UserDefaults.standard.object(forKey: "player.autoNext") as? Bool ?? true {
         didSet { UserDefaults.standard.set(autoNext, forKey: "player.autoNext") }
     }
+    @Published var anime4kMode: Anime4KMode = Anime4KMode(rawValue: UserDefaults.standard.string(forKey: "player.anime4k") ?? "") ?? .off {
+        didSet { UserDefaults.standard.set(anime4kMode.rawValue, forKey: "player.anime4k") }
+    }
+    @Published var anime4kHUD: Bool = UserDefaults.standard.bool(forKey: "player.anime4kHUD") {
+        didSet { UserDefaults.standard.set(anime4kHUD, forKey: "player.anime4kHUD") }
+    }
     @Published var useRuleMirror: Bool = UserDefaults.standard.bool(forKey: "rules.mirror") {
         didSet { UserDefaults.standard.set(useRuleMirror, forKey: "rules.mirror") }
     }
