@@ -1,0 +1,50 @@
+name: "tvOS"
+
+on:
+  push:
+    branches: [tvos]
+    paths: ["tvos/**", "tvos-resolver/**", ".github/workflows/tvos.yaml"]
+  pull_request:
+    paths: ["tvos/**", "tvos-resolver/**", ".github/workflows/tvos.yaml"]
+  workflow_dispatch:
+
+jobs:
+  core-tests:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: KazumiCore tests
+        working-directory: tvos/KazumiCore
+        run: swift test
+
+  build-app:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        working-directory: tvos
+        run: xcodegen
+      - name: Build for tvOS Simulator
+        working-directory: tvos
+        run: |
+          set -o pipefail
+          xcodebuild -project KazumiTV.xcodeproj -scheme KazumiTV \
+            -destination 'generic/platform=tvOS Simulator' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tail -200
+      - name: Build for tvOS device (unsigned)
+        working-directory: tvos
+        run: |
+          set -o pipefail
+          xcodebuild -project KazumiTV.xcodeproj -scheme KazumiTV \
+            -destination 'generic/platform=tvOS' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tail -50
+
+  resolver:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax check
+        working-directory: tvos-resolver
+        run: node --check server.js && node --check inject.js
